@@ -3,6 +3,7 @@ import tiktoken
 from convokit import Corpus, download
 import torch.nn as nn
 import torch
+from torch.nn import functional as F
 
 
 
@@ -41,23 +42,6 @@ conversations_texts = []
 # 限制处理的对话数量
 max_conversations = 5000
 
-
-
-'''
-print("总话语数:", len(corpus.utterances))
-print("总对话数（会话数）:", len(corpus.conversations))
-
-
-for conversation_id in corpus.conversations:
-    conversation = corpus.get_conversation(conversation_id)
-    print(f"对话ID: {conversation_id}")
-    for utterance in conversation.iter_utterances():
-        print(f"{utterance.speaker.id}: {utterance.text}")
-    break  
-'''
-
-
-
 # 遍历语料库中的对话
 for i, conversation_id in enumerate(corpus.conversations):
     if i >= max_conversations:
@@ -84,9 +68,9 @@ test_dataset = tokenized_text[train_size:]
 '''
 Two Fully Connected Layers with ReLU Activation Function
 '''
-class FeedforwardNetwork(nn.Module):
+class Feedforward(nn.Module):
     def __init__(self, d_model):
-        super(FeedforwardNetwork, self).__init__()
+        super(Feedforward, self).__init__()
         self.linear1 = nn.Linear(d_model, d_model * 4)
         self. relu = nn.ReLU()
         self.linear2 = nn.Linear(d_model * 4, d_model)
@@ -99,4 +83,63 @@ class FeedforwardNetwork(nn.Module):
         x = self.linear2(x)
         x = self.dropout(x)
         
+        return x
+    
+class Head(nn.Module):
+    '''
+    batch_size = 4
+    context_size = 100
+    d_model = 64
+    '''
+    def _init_ (self):
+        super(self)._init_()
+        self.num_heads = num_heads
+        self.head_dim = d_model // num_heads
+
+        # 64 * 64
+        self.Wq = nn.Linear(d_model, d_model)
+        self.Wk = nn.Linear(d_model, d_model)
+        self.Wv = nn.Linear(d_model, d_model)
+
+        self.register_buffer('tril', torch.tril(torch.ones(context_length, context_length)))
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self,x):
+        Q = x @ self.Wq
+        K = x @ self.Wk
+        V = x @ self.Wv
+        print(Q.shape, K.shape, V.shape)
+        attention = Q @ K.transpose(-2, -1) / (self.head_dim ** 0.5)
+        attention = attention.masked_fill(self.mask == 0, float('-inf'))
+        attention = nn.Softmax(attention, dim = -1)
+        attention = self.dropout(attention)
+        output = attention @ V
+
+        return output
+
+class MultiHeadAttention(nn.Module):
+    def _init_(self):
+        super(self)._init_()
+        #循环调用单头注意力
+        self.heads = nn.ModuleList([Head() for _ in range(num_heads)])
+        #全连接层
+        self.proj = nn.Linear(d_model, d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        heads = [head(x) for head in self.heads]
+        out = self.dropout(self.proj(heads))
+        return out
+
+class Block(nn.Module):
+    def _init_(self):
+        super(self)._init_()
+        self.ln1 = nn.LayerNorm(d_model)
+        self.ln2 = nn.LayerNorm(d_model)
+        self.multihead = MultiHeadAttention()
+        self.ffn = Feedforward(d_model)
+
+    def forward(self, x):
+        x = x + self.multihead(self.ln1(x))
+        x = x + self.ffn(self.ffn(self.ln2(x)))
         return x
