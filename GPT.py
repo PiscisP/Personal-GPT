@@ -273,7 +273,7 @@ def main():
         model = GPT().to(device)
         train_model(model, max_iterations, evel_interval, 'model.pth')
     elif action == "generate":
-        start_text = "大教堂"
+        start_text = "大教堂完工了。"
         generated_text = generate_text(start_text, 'model.pth', 100)
         print("Generated text:")
         print(generated_text)

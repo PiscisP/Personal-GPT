@@ -1,0 +1,1 @@
+A personal practice for Transformer LLM models. Using Chinese version of The Pillar of the Earth as the corpus.
