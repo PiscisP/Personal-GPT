@@ -12,16 +12,15 @@ def check_tensor(tensor, name="Tensor"):
 
 #declare hyperparameters
 batch_size = 16
-context_length = 50
-d_model = 64
-num_blocks = 8
-num_heads = 6
+context_length = 200
+d_model = 128
+num_heads = 8
 learning_rate = 0.001
-dropout = 0.2
-max_iterations = 5000
-evel_interval = 100
-ever_iteration = 50
-n_layer = 6
+dropout = 0.1
+max_iterations = 10000
+evel_interval = 200
+ever_iteration = 100
+n_layer = 12
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 TORCH_SEED = 1337
@@ -213,18 +212,16 @@ def get_batch(split):
 model = GPT().to(device)
 
 @torch.no_grad()
-def estimate_loss():
-    out = {}
+def estimate_loss(model, split, ever_iteration, device):
+    losses = torch.zeros(ever_iteration, device=device)
     model.eval()
-    for split in ['train', 'val']:
-        losses = torch.zeros(ever_iteration, device=device)
-        for k in range(ever_iteration):
-            X, Y = get_batch(split)
-            logits, loss = model(X, Y)
-            losses[k] = loss.item()
-        out[split] = losses.mean()
+    for k in range(ever_iteration):
+        X, Y = get_batch(split)
+        logits, loss = model(X, Y)
+        losses[k] = loss.item()
     model.train()
-    return out
+    return losses.mean().item()
+
 
 
 def load_model(model_path, device):
@@ -271,12 +268,12 @@ def train_model(model, max_iterations, eval_interval, save_path):
 
 
 def main():
-    action = "train"
+    action = "generate"
     if action == "train":
         model = GPT().to(device)
         train_model(model, max_iterations, evel_interval, 'model.pth')
     elif action == "generate":
-        start_text = ""
+        start_text = "大教堂"
         generated_text = generate_text(start_text, 'model.pth', 100)
         print("Generated text:")
         print(generated_text)
