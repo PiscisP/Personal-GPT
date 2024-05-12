@@ -12,12 +12,12 @@ def check_tensor(tensor, name="Tensor"):
 
 #declare hyperparameters
 batch_size = 16
-context_length = 200
-d_model = 128
+context_length = 128
+d_model = 256
 num_heads = 8
-learning_rate = 0.001
+learning_rate = 1e-3
 dropout = 0.1
-max_iterations = 10000
+max_iterations = 20000
 evel_interval = 200
 ever_iteration = 100
 n_layer = 12
@@ -28,7 +28,7 @@ torch.manual_seed(TORCH_SEED)
 
 
 
-# 指定语料库存放的路径
+# setup the corpus
 corpus_path = 'C:/Users/11632/OneDrive/桌面/GPT/Pillar of the Earth.txt'
 
 # Load the contents of the file
@@ -106,9 +106,9 @@ class Head(nn.Module):
 class MultiHeadAttention(nn.Module):
     def __init__(self,num_heads,head_size):
         super().__init__()
-        #循环调用单头注意力
+        #recursively create num_heads heads
         self.heads = nn.ModuleList([Head(num_heads, head_size) for _ in range(num_heads)])
-        #全连接层
+        #fc layer
         self.proj = nn.Linear(head_size * num_heads, d_model)
         self.dropout = nn.Dropout(dropout)
 
