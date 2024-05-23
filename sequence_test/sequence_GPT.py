@@ -8,6 +8,7 @@ from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, TensorDataset
 import matplotlib.pyplot as plt
 import torch.optim as optim
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 def check_tensor(tensor, name="Tensor"):
@@ -73,12 +74,23 @@ X_tensor = torch.tensor(x, dtype=torch.float32)
 y_tensor = torch.tensor(y, dtype=torch.float32)
 #print(X_tensor.shape, y_tensor.shape)
 # 定义数据集和数据加载器
+# Create the dataset
 dataset = TensorDataset(X_tensor, y_tensor)
-train_size = int(0.9 * len(dataset))
-train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, len(dataset) - train_size])
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+# Calculate sizes for train, validation, and test sets
+train_size = int(0.7 * len(dataset))
+val_size = int(0.2 * len(dataset))
+test_size = len(dataset) - train_size - val_size
+
+train_dataset = dataset[:train_size]
+val_dataset = dataset[train_size:train_size + val_size]
+test_dataset = dataset[train_size + val_size:]
+
+# Define data loaders
+batch_size = 32  # Assuming a batch size, adjust as necessary
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-test_loader = DataLoader(dataset, batch_size=1, shuffle=False)
+test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 #print("test_loader:",len(test_loader))
 
 #FFN Layer
@@ -286,15 +298,14 @@ def test_model():
 def train_model(model, train_loader, val_loader, num_epochs, learning_rate, save_path):
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    early_stop_count = 0
+    scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=3, verbose=True)
     
     for epoch in range(num_epochs):
         model.train()
         train_losses = []
         for inputs, targets in train_loader:
             inputs, targets = inputs.to(device), targets.to(device)
-
-            # Generate position indices for each input batch
-            sequence_length = inputs.shape[1]  # Assuming inputs are shaped as [B, T, F]
             
             optimizer.zero_grad()
 
@@ -322,6 +333,19 @@ def train_model(model, train_loader, val_loader, num_epochs, learning_rate, save
                 loss = criterion(output, targets)
                 val_losses.append(loss.item())
 
+
+        val_loss = np.mean(val_losses)
+        scheduler.step(val_loss)
+
+        if val_loss < min_val_loss:
+            min_val_loss = val_loss
+            early_stop_count = 0
+        else:
+            early_stop_count += 1
+
+        if early_stop_count >= 5:
+            print("Early stopping!")
+            break
         print(f'Epoch [{epoch+1}/{num_epochs}], Validation Loss: {np.mean(val_losses):.4f}')
 
     # Save the model checkpoint
