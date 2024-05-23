@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch
 from torch.nn import functional as F
 import os
+
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 def check_tensor(tensor, name="Tensor"):
     if torch.isnan(tensor).any() or torch.isinf(tensor).any():
@@ -18,7 +19,7 @@ num_heads = 8
 learning_rate = 1e-3
 dropout = 0.1
 max_iterations = 20000
-evel_interval = 200
+eval_interval = 200
 ever_iteration = 100
 n_layer = 12
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -271,7 +272,7 @@ def main():
     action = "generate"
     if action == "train":
         model = GPT().to(device)
-        train_model(model, max_iterations, evel_interval, 'model.pth')
+        train_model(model, max_iterations, eval_interval, 'model.pth')
     elif action == "generate":
         start_text = "大教堂完工了。"
         generated_text = generate_text(start_text, 'model.pth', 100)
